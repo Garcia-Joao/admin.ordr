@@ -17,6 +17,8 @@ export default function DashboardPage() {
 
     async function loadData() {
       try {
+        setError('')
+
         const [companiesResult, plansResult] = await Promise.all([
           adminApi.listCompanies(),
           adminApi.listLicensePlans(),
@@ -32,28 +34,36 @@ export default function DashboardPage() {
     loadData()
   }, [admin])
 
+  const realCompanies = useMemo(() => {
+    return companies.filter((company) => !company.isTest)
+  }, [companies])
+
   const stats = useMemo(() => {
-    const activeCompanies = companies.filter(
+    const activeCompanies = realCompanies.filter(
       (company) => company.platformAccessStatus === 'ACTIVE'
     ).length
 
-    const blockedCompanies = companies.filter(
+    const blockedCompanies = realCompanies.filter(
       (company) => company.platformAccessStatus !== 'ACTIVE'
     ).length
 
-    const lifetimeLicenses = companies.filter((company) => {
+    const lifetimeLicenses = realCompanies.filter((company) => {
       const license = company.platformLicenses?.[0]
-      return license?.plan?.isLifetime
+      return Boolean(license?.plan?.isLifetime)
     }).length
 
     return {
-      totalCompanies: companies.length,
+      totalCompanies: realCompanies.length,
       activeCompanies,
       blockedCompanies,
       totalPlans: plans.length,
       lifetimeLicenses,
     }
-  }, [companies, plans])
+  }, [realCompanies, plans])
+
+  const recentCompanies = useMemo(() => {
+    return realCompanies.slice(0, 5)
+  }, [realCompanies])
 
   if (loading) return <AdminLoading />
 
@@ -63,7 +73,10 @@ export default function DashboardPage() {
         <div>
           <p className="eyebrow">Visão geral</p>
           <h1>Dashboard</h1>
-          <p className="muted">Resumo administrativo da plataforma ORDR.</p>
+          <p className="muted">
+            Resumo administrativo da plataforma ORDR. Empresas de teste não entram
+            nos indicadores.
+          </p>
         </div>
       </div>
 
@@ -85,17 +98,22 @@ export default function DashboardPage() {
           </div>
 
           <div className="list-stack">
-            {companies.slice(0, 5).map((company) => (
+            {recentCompanies.map((company) => (
               <div className="list-row" key={company.id}>
                 <div>
                   <strong>{company.name}</strong>
                   <p>{company.platformAccessStatus}</p>
                 </div>
-                <span className="badge">{company.platformLicenses?.[0]?.plan?.name ?? 'Sem licença'}</span>
+
+                <span className="badge">
+                  {company.platformLicenses?.[0]?.plan?.name ?? 'Sem licença'}
+                </span>
               </div>
             ))}
 
-            {companies.length === 0 && <p className="muted">Nenhuma empresa cadastrada.</p>}
+            {recentCompanies.length === 0 && (
+              <p className="muted">Nenhuma empresa cadastrada.</p>
+            )}
           </div>
         </div>
 
@@ -112,13 +130,16 @@ export default function DashboardPage() {
                   <strong>{plan.name}</strong>
                   <p>{plan.isLifetime ? 'Vitalícia' : `${plan.durationMonths} meses`}</p>
                 </div>
+
                 <span className={plan.active ? 'badge success' : 'badge muted-badge'}>
                   {plan.active ? 'Ativa' : 'Inativa'}
                 </span>
               </div>
             ))}
 
-            {plans.length === 0 && <p className="muted">Nenhuma licença cadastrada.</p>}
+            {plans.length === 0 && (
+              <p className="muted">Nenhuma licença cadastrada.</p>
+            )}
           </div>
         </div>
       </section>
