@@ -48,6 +48,53 @@ function toDateInput(value?: string | null) {
   return date.toISOString().slice(0, 10)
 }
 
+function addMonthsToDateInput(value: string, months: number) {
+  if (!value || !Number.isFinite(months)) return ''
+
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) return ''
+
+  const targetMonthIndex = month - 1 + months
+  const targetYear = year + Math.floor(targetMonthIndex / 12)
+  const normalizedMonthIndex = ((targetMonthIndex % 12) + 12) % 12
+  const maxDay = new Date(targetYear, normalizedMonthIndex + 1, 0).getDate()
+  const safeDay = Math.min(day, maxDay)
+  const result = new Date(targetYear, normalizedMonthIndex, safeDay)
+
+  const resultYear = result.getFullYear()
+  const resultMonth = String(result.getMonth() + 1).padStart(2, '0')
+  const resultDay = String(result.getDate()).padStart(2, '0')
+
+  return `${resultYear}-${resultMonth}-${resultDay}`
+}
+
+function getPlanDurationMonths(plan?: LicensePlan | null) {
+  if (!plan || plan.isLifetime) return null
+
+  const duration = Number(plan.durationMonths)
+  if (!Number.isFinite(duration) || duration <= 0) return null
+
+  return duration
+}
+
+function getRemainingLabelFromDateInput(value: string, isLifetime = false) {
+  if (isLifetime) return 'Vitalícia'
+  if (!value) return '—'
+
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) return '—'
+
+  const end = new Date(year, month - 1, day, 23, 59, 59, 999)
+  if (Number.isNaN(end.getTime())) return '—'
+
+  const diff = end.getTime() - Date.now()
+  const remaining = Math.ceil(diff / (1000 * 60 * 60 * 24))
+
+  if (remaining < 0) return `Expirada há ${Math.abs(remaining)} dia(s)`
+  if (remaining === 0) return 'Expira hoje'
+  return `${remaining} dia(s) restantes`
+}
+
 function formatDate(value?: string | null) {
   if (!value) return '—'
 
@@ -130,6 +177,23 @@ export default function EmpresasPage() {
 
   const activePlans = useMemo(() => plans.filter((plan) => plan.active), [plans])
 
+  const selectedLicenseEditPlan = useMemo(() => {
+    return (
+      activePlans.find((plan) => plan.id === licenseEditPlanId) ??
+      plans.find((plan) => plan.id === licenseEditPlanId) ??
+      currentLicense?.plan ??
+      null
+    )
+  }, [activePlans, plans, licenseEditPlanId, currentLicense])
+
+  const selectedInitialLicensePlan = useMemo(() => {
+    return activePlans.find((plan) => plan.id === licensePlanId) ?? null
+  }, [activePlans, licensePlanId])
+
+  const selectedAssignLicensePlan = useMemo(() => {
+    return activePlans.find((plan) => plan.id === assignPlanId) ?? null
+  }, [activePlans, assignPlanId])
+
   const visibleCompanies = useMemo(() => {
     return companies.filter((company) => !company.isTest)
   }, [companies])
@@ -198,6 +262,67 @@ export default function EmpresasPage() {
     setOwnerPhone('')
     setLicensePlanId('')
     setLicenseStartsAt(getTodayInput())
+  }
+
+  function getLicensePlanById(planId: string) {
+    return (
+      activePlans.find((plan) => plan.id === planId) ??
+      plans.find((plan) => plan.id === planId) ??
+      (currentLicense?.planId === planId ? currentLicense.plan : null) ??
+      null
+    )
+  }
+
+  function handleInitialLicensePlanChange(planId: string) {
+    setLicensePlanId(planId)
+
+    const plan = getLicensePlanById(planId)
+    if (!plan || plan.isLifetime || !getPlanDurationMonths(plan)) return
+
+    setLicenseStartsAt((current) => current || getTodayInput())
+  }
+
+  function handleLicenseEditPlanChange(planId: string) {
+    setLicenseEditPlanId(planId)
+
+    const plan = getLicensePlanById(planId)
+    const durationMonths = getPlanDurationMonths(plan)
+
+    if (plan?.isLifetime || !durationMonths) {
+      setLicenseEditEndsAt('')
+      return
+    }
+
+    const startsAt = licenseEditStartsAt || getTodayInput()
+    setLicenseEditStartsAt(startsAt)
+    setLicenseEditEndsAt(addMonthsToDateInput(startsAt, durationMonths))
+  }
+
+  function handleLicenseEditStartsAtChange(startsAt: string) {
+    setLicenseEditStartsAt(startsAt)
+
+    const durationMonths = getPlanDurationMonths(selectedLicenseEditPlan)
+    if (!startsAt || !durationMonths) return
+
+    setLicenseEditEndsAt(addMonthsToDateInput(startsAt, durationMonths))
+  }
+
+  function handleLicenseEditEndsAtChange(endsAt: string) {
+    setLicenseEditEndsAt(endsAt)
+
+    const durationMonths = getPlanDurationMonths(selectedLicenseEditPlan)
+    if (!endsAt || !durationMonths) return
+
+    setLicenseEditStartsAt(addMonthsToDateInput(endsAt, -durationMonths))
+  }
+
+  function handleAssignLicensePlanChange(planId: string) {
+    setAssignPlanId(planId)
+
+    const plan = getLicensePlanById(planId)
+    if (!plan || plan.isLifetime || !getPlanDurationMonths(plan)) return
+
+    setAssignStartsAt((current) => current || getTodayInput())
   }
 
   async function handleCreateCompany(event: FormEvent<HTMLFormElement>) {
@@ -468,7 +593,7 @@ export default function EmpresasPage() {
             <div className="form-grid">
               <label className="field">
                 <span>Licença inicial</span>
-                <select value={licensePlanId} onChange={(event) => setLicensePlanId(event.target.value)}>
+                <select value={licensePlanId} onChange={(event) => handleInitialLicensePlanChange(event.target.value)}>
                   <option value="">Sem licença inicial</option>
                   {activePlans.map((plan) => (
                     <option key={plan.id} value={plan.id}>{plan.name} · {plan.isLifetime ? 'Vitalícia' : `${plan.durationMonths} meses`}</option>
@@ -480,6 +605,11 @@ export default function EmpresasPage() {
                 <label className="field">
                   <span>Data inicial da licença</span>
                   <input type="date" value={licenseStartsAt} onChange={(event) => setLicenseStartsAt(event.target.value)} />
+                  {selectedInitialLicensePlan?.isLifetime ? (
+                    <small>Vencimento: vitalício</small>
+                  ) : (
+                    <small>Vencimento previsto: {getPlanDurationMonths(selectedInitialLicensePlan) ? formatDate(addMonthsToDateInput(licenseStartsAt, getPlanDurationMonths(selectedInitialLicensePlan) ?? 0)) : '—'}</small>
+                  )}
                 </label>
               )}
             </div>
@@ -536,16 +666,16 @@ export default function EmpresasPage() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))', gap: '0.65rem' }}>
                       <InfoItem label="Plano" value={currentLicense.plan?.name ?? '—'} />
                       <InfoItem label="Status" value={licenseStatusLabels[currentLicense.status as LicenseStatus] ?? currentLicense.status} />
-                      <InfoItem label="Início" value={formatDate(currentLicense.startsAt)} />
-                      <InfoItem label="Vencimento" value={currentLicense.endsAt ? formatDate(currentLicense.endsAt) : 'Vitalícia'} />
-                      <InfoItem label="Dias restantes" value={getRemainingLabel(currentLicense)} />
+                      <InfoItem label="Início" value={formatDate(licenseEditStartsAt || currentLicense.startsAt)} />
+                      <InfoItem label="Vencimento" value={selectedLicenseEditPlan?.isLifetime ? 'Vitalícia' : formatDate(licenseEditEndsAt || currentLicense.endsAt)} />
+                      <InfoItem label="Dias restantes" value={selectedLicenseEditPlan?.isLifetime ? 'Vitalícia' : getRemainingLabelFromDateInput(licenseEditEndsAt)} />
                       <InfoItem label="Criada em" value={formatDate(currentLicense.createdAt)} />
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))', gap: '0.75rem' }}>
                       <label className="field">
                         <span>Plano</span>
-                        <select value={licenseEditPlanId} onChange={(event) => setLicenseEditPlanId(event.target.value)}>
+                        <select value={licenseEditPlanId} onChange={(event) => handleLicenseEditPlanChange(event.target.value)}>
                           {activePlans.map((plan) => (
                             <option key={plan.id} value={plan.id}>{plan.name}</option>
                           ))}
@@ -562,13 +692,17 @@ export default function EmpresasPage() {
                       </label>
                       <label className="field">
                         <span>Started at</span>
-                        <input type="date" value={licenseEditStartsAt} onChange={(event) => setLicenseEditStartsAt(event.target.value)} />
+                        <input type="date" value={licenseEditStartsAt} onChange={(event) => handleLicenseEditStartsAtChange(event.target.value)} />
                       </label>
                       <label className="field">
                         <span>Ends at</span>
-                        <input type="date" value={licenseEditEndsAt} onChange={(event) => setLicenseEditEndsAt(event.target.value)} />
+                        <input type="date" value={licenseEditEndsAt} onChange={(event) => handleLicenseEditEndsAtChange(event.target.value)} disabled={Boolean(selectedLicenseEditPlan?.isLifetime)} />
                       </label>
                     </div>
+
+                    <p className="muted">
+                      Prévia: {selectedLicenseEditPlan?.isLifetime ? 'licença vitalícia' : `${getRemainingLabelFromDateInput(licenseEditEndsAt)}`}
+                    </p>
 
                     <label className="field">
                       <span>Observações da licença</span>
@@ -591,7 +725,7 @@ export default function EmpresasPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', gap: '0.75rem' }}>
                   <label className="field">
                     <span>Nova licença</span>
-                    <select value={assignPlanId} onChange={(event) => setAssignPlanId(event.target.value)}>
+                    <select value={assignPlanId} onChange={(event) => handleAssignLicensePlanChange(event.target.value)}>
                       <option value="">Manter atual</option>
                       {activePlans.map((plan) => (
                         <option key={plan.id} value={plan.id}>{plan.name} · {plan.isLifetime ? 'Vitalícia' : `${plan.durationMonths} meses`}</option>
@@ -603,6 +737,11 @@ export default function EmpresasPage() {
                     <label className="field">
                       <span>Start date</span>
                       <input type="date" value={assignStartsAt} onChange={(event) => setAssignStartsAt(event.target.value)} />
+                      {selectedAssignLicensePlan?.isLifetime ? (
+                        <small>Vencimento: vitalício</small>
+                      ) : (
+                        <small>Vencimento previsto: {getPlanDurationMonths(selectedAssignLicensePlan) ? formatDate(addMonthsToDateInput(assignStartsAt, getPlanDurationMonths(selectedAssignLicensePlan) ?? 0)) : '—'}</small>
+                      )}
                     </label>
                   )}
                 </div>
