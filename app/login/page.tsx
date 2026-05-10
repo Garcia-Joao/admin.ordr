@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { adminApi } from '@/lib/api'
+import { OrdrFullLogo, OrdrIcon } from '@/components/brand/ordr-brand'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -62,7 +63,7 @@ export default function LoginPage() {
     return (
       <main className="page-center">
         <div className="loading-card">
-          <div className="brand-mark">O</div>
+          <OrdrIcon size="lg" />
           <p>Verificando sessão...</p>
         </div>
       </main>
@@ -72,9 +73,12 @@ export default function LoginPage() {
   return (
     <main className="login-page">
       <section className="login-hero">
-        <div className="brand-row">
-          <div className="brand-mark">O</div>
-          <span>ORDR Admin</span>
+        <div className="brand-row login-brand">
+          <OrdrIcon size="md" />
+          <div className="brand-copy">
+            <OrdrFullLogo />
+            <span>Admin platform</span>
+          </div>
         </div>
 
         <div>

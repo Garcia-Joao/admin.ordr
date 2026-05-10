@@ -4,6 +4,10 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'ORDR Admin',
   description: 'Painel administrativo da plataforma ORDR',
+  icons: {
+    icon: '/icon.svg',
+    apple: '/apple-icon.png',
+  },
 }
 
 export default function RootLayout({
