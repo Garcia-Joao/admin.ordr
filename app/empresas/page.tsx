@@ -44,7 +44,6 @@ export default function EmpresasPage() {
   const [ownerName, setOwnerName] = useState('')
   const [ownerPhone, setOwnerPhone] = useState('')
   const [licensePlanId, setLicensePlanId] = useState('')
-  const [isTest, setIsTest] = useState(false)
 
   const [editName, setEditName] = useState('')
   const [editIsTest, setEditIsTest] = useState(false)
@@ -119,7 +118,6 @@ export default function EmpresasPage() {
     setOwnerName('')
     setOwnerPhone('')
     setLicensePlanId('')
-    setIsTest(false)
   }
 
   async function handleCreateCompany(event: FormEvent<HTMLFormElement>) {
@@ -132,7 +130,7 @@ export default function EmpresasPage() {
 
       const result = await adminApi.createCompany({
         name: companyName,
-        isTest,
+        isTest: false,
         ownerUsername,
         ownerPassword,
         ownerName: ownerName || null,
@@ -335,11 +333,6 @@ export default function EmpresasPage() {
             <label className="field">
               <span>Nome da empresa</span>
               <input value={companyName} onChange={(event) => setCompanyName(event.target.value)} />
-            </label>
-
-            <label className="check-row">
-              <input type="checkbox" checked={isTest} onChange={(event) => setIsTest(event.target.checked)} />
-              <span>Empresa de teste</span>
             </label>
 
             <div className="form-grid">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { AdminIcon, AdminLoading, AdminShell } from '@/components/admin-shell'
 import { adminApi, type Company, type CompanyMembership, type PlatformUser } from '@/lib/api'
 import { useAdminGuard } from '@/lib/auth'
@@ -20,6 +20,15 @@ export default function UsuariosPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false)
+
+  const [newUsername, setNewUsername] = useState('')
+  const [newPassword, setNewPassword] = useState('123456')
+  const [newName, setNewName] = useState('')
+  const [newPhone, setNewPhone] = useState('')
+  const [newCompanyId, setNewCompanyId] = useState('')
+  const [newSystemRole, setNewSystemRole] = useState<SystemRole>('ADMIN')
+  const [newCustomRoleId, setNewCustomRoleId] = useState('')
 
   const [companyId, setCompanyId] = useState('')
   const [systemRole, setSystemRole] = useState<SystemRole>('ADMIN')
@@ -36,6 +45,10 @@ export default function UsuariosPage() {
   const selectedCompany = useMemo(() => {
     return companies.find((company) => company.id === companyId) ?? null
   }, [companies, companyId])
+
+  const selectedNewCompany = useMemo(() => {
+    return companies.find((company) => company.id === newCompanyId) ?? null
+  }, [companies, newCompanyId])
 
   const summary = useMemo(() => {
     const multiCompanyUsers = users.filter((user) => user.memberships.length > 1).length
@@ -73,6 +86,54 @@ export default function UsuariosPage() {
     setSystemRole('ADMIN')
     setCustomRoleId('')
   }, [editingUser])
+
+  useEffect(() => {
+    setCustomRoleId('')
+  }, [companyId, systemRole])
+
+  useEffect(() => {
+    setNewCustomRoleId('')
+  }, [newCompanyId, newSystemRole])
+
+  function resetCreateUserForm() {
+    setNewUsername('')
+    setNewPassword('123456')
+    setNewName('')
+    setNewPhone('')
+    setNewCompanyId('')
+    setNewSystemRole('ADMIN')
+    setNewCustomRoleId('')
+  }
+
+  async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    try {
+      setSubmitting(true)
+      setError('')
+      setSuccess('')
+
+      await adminApi.createUser({
+        username: newUsername,
+        password: newPassword,
+        name: newName || null,
+        phone: newPhone || null,
+        companyId: newCompanyId || null,
+        systemRole: newCompanyId ? newSystemRole : undefined,
+        customRoleId: newCompanyId && newSystemRole === 'CUSTOM' ? newCustomRoleId || null : null,
+        role: newCompanyId && newSystemRole === 'ADMIN' ? 'admin' : 'cashier',
+      })
+
+      resetCreateUserForm()
+      setIsCreateUserModalOpen(false)
+      setSuccess('Usuário criado com sucesso.')
+      await loadData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao criar usuário.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   async function handleAddCompanyAccess() {
     if (!editingUser || !companyId) return
@@ -143,6 +204,12 @@ export default function UsuariosPage() {
           <h1>Usuários</h1>
           <p className="muted">Veja todos os usuários e quais empresas cada um consegue acessar.</p>
         </div>
+        <div className="heading-actions">
+          <button className="primary-button action-button" onClick={() => setIsCreateUserModalOpen(true)}>
+            <AdminIcon name="users" />
+            Novo usuário
+          </button>
+        </div>
       </div>
 
       {error && <div className="error-box">{error}</div>}
@@ -185,6 +252,88 @@ export default function UsuariosPage() {
           {users.length === 0 && <p className="muted">Nenhum usuário cadastrado.</p>}
         </div>
       </section>
+
+
+      {isCreateUserModalOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsCreateUserModalOpen(false)}>
+          <form className="modal-card card" onSubmit={handleCreateUser} onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow compact">Cadastro</p>
+                <h2>Novo usuário</h2>
+                <p className="muted">Crie o usuário e, se quiser, já vincule a uma empresa.</p>
+              </div>
+              <button className="icon-button" type="button" onClick={() => setIsCreateUserModalOpen(false)} aria-label="Fechar modal">×</button>
+            </div>
+
+            <div className="form-grid">
+              <label className="field">
+                <span>Usuário/login</span>
+                <input value={newUsername} onChange={(event) => setNewUsername(event.target.value)} />
+              </label>
+              <label className="field">
+                <span>Senha inicial</span>
+                <input value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
+              </label>
+            </div>
+
+            <div className="form-grid">
+              <label className="field">
+                <span>Nome</span>
+                <input value={newName} onChange={(event) => setNewName(event.target.value)} />
+              </label>
+              <label className="field">
+                <span>Telefone</span>
+                <input value={newPhone} onChange={(event) => setNewPhone(event.target.value)} />
+              </label>
+            </div>
+
+            <div className="mini-card">
+              <h3>Acesso inicial</h3>
+              <p className="muted">As roles customizadas abaixo vêm somente da empresa selecionada.</p>
+
+              <div className="form-grid compact-form-grid">
+                <label className="field">
+                  <span>Empresa</span>
+                  <select value={newCompanyId} onChange={(event) => setNewCompanyId(event.target.value)}>
+                    <option value="">Criar sem empresa</option>
+                    {companies.map((company) => (
+                      <option key={company.id} value={company.id}>{company.name}</option>
+                    ))}
+                  </select>
+                </label>
+
+                {newCompanyId && (
+                  <label className="field">
+                    <span>Acesso</span>
+                    <select value={newSystemRole} onChange={(event) => setNewSystemRole(event.target.value as SystemRole)}>
+                      <option value="ADMIN">Admin total</option>
+                      <option value="CUSTOM">Role customizada</option>
+                    </select>
+                  </label>
+                )}
+              </div>
+
+              {newCompanyId && newSystemRole === 'CUSTOM' && (
+                <label className="field">
+                  <span>Role da empresa</span>
+                  <select value={newCustomRoleId} onChange={(event) => setNewCustomRoleId(event.target.value)}>
+                    <option value="">Selecione</option>
+                    {(selectedNewCompany?.accessRoles ?? []).map((role) => (
+                      <option key={role.id} value={role.id}>{role.name}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+
+            <div className="modal-actions">
+              <button className="ghost-button" type="button" onClick={() => setIsCreateUserModalOpen(false)}>Cancelar</button>
+              <button className="primary-button action-button" disabled={submitting}>{submitting ? 'Criando...' : 'Criar usuário'}</button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {editingUser && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setEditingUserId('')}>

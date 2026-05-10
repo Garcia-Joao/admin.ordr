@@ -231,9 +231,26 @@ export const adminApi = {
     return apiFetch<ApiResult<{ users: PlatformUser[] }>>('/admin/users')
   },
 
+
+  createUser(input: {
+    username: string
+    password: string
+    name?: string | null
+    phone?: string | null
+    companyId?: string | null
+    systemRole?: 'ADMIN' | 'CUSTOM'
+    customRoleId?: string | null
+    role?: 'admin' | 'cashier' | 'waiter'
+  }) {
+    return apiFetch<ApiResult<{ user: PlatformUser }>>('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+  },
+
   createCompany(input: {
     name: string
-    isTest: boolean
+    isTest?: boolean
     ownerUsername: string
     ownerPassword: string
     ownerName?: string | null
