@@ -2,18 +2,26 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { AdminIcon, AdminLoading, AdminShell } from '@/components/admin-shell'
-import { adminApi, type Company, type CompanyMembership, type LicensePlan, type PlatformUser } from '@/lib/api'
+import { adminApi, type Company, type CompanyLicense, type CompanyMembership, type LicensePlan, type PlatformUser } from '@/lib/api'
 import { useAdminGuard } from '@/lib/auth'
 
 type AccessStatus = 'ACTIVE' | 'SUSPENDED' | 'BLOCKED' | 'CANCELLED'
 type SystemRole = 'ADMIN' | 'CUSTOM'
 type LegacyRole = 'admin' | 'cashier' | 'waiter'
+type LicenseStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'REPLACED'
 
 const accessLabels: Record<AccessStatus, string> = {
   ACTIVE: 'Ativa',
   SUSPENDED: 'Suspensa',
   BLOCKED: 'Bloqueada',
   CANCELLED: 'Cancelada',
+}
+
+const licenseStatusLabels: Record<LicenseStatus, string> = {
+  ACTIVE: 'Ativa',
+  EXPIRED: 'Expirada',
+  CANCELLED: 'Cancelada',
+  REPLACED: 'Substituída',
 }
 
 const legacyRoleLabels: Record<LegacyRole, string> = {
@@ -25,6 +33,54 @@ const legacyRoleLabels: Record<LegacyRole, string> = {
 function getMembershipLabel(membership: CompanyMembership) {
   if (membership.systemRole === 'ADMIN') return 'Admin total'
   return membership.customRole?.name ?? legacyRoleLabels[membership.role] ?? 'Custom'
+}
+
+function getTodayInput() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function toDateInput(value?: string | null) {
+  if (!value) return ''
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  return date.toISOString().slice(0, 10)
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return '—'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
+}
+
+function getRemainingDays(license?: CompanyLicense | null) {
+  if (!license) return null
+  if (!license.endsAt) return null
+
+  const end = new Date(license.endsAt)
+  if (Number.isNaN(end.getTime())) return null
+
+  const diff = end.getTime() - Date.now()
+  return Math.ceil(diff / (1000 * 60 * 60 * 24))
+}
+
+function getRemainingLabel(license?: CompanyLicense | null) {
+  if (!license) return 'Sem licença'
+  if (!license.endsAt) return 'Vitalícia'
+
+  const remaining = getRemainingDays(license)
+  if (remaining === null) return '—'
+  if (remaining < 0) return `Expirada há ${Math.abs(remaining)} dia(s)`
+  if (remaining === 0) return 'Expira hoje'
+  return `${remaining} dia(s) restantes`
 }
 
 export default function EmpresasPage() {
@@ -44,12 +100,21 @@ export default function EmpresasPage() {
   const [ownerName, setOwnerName] = useState('')
   const [ownerPhone, setOwnerPhone] = useState('')
   const [licensePlanId, setLicensePlanId] = useState('')
+  const [licenseStartsAt, setLicenseStartsAt] = useState(getTodayInput())
 
   const [editName, setEditName] = useState('')
   const [editIsTest, setEditIsTest] = useState(false)
   const [editAccessStatus, setEditAccessStatus] = useState<AccessStatus>('ACTIVE')
   const [editAccessReason, setEditAccessReason] = useState('')
   const [assignPlanId, setAssignPlanId] = useState('')
+  const [assignStartsAt, setAssignStartsAt] = useState(getTodayInput())
+  const [assignNotes, setAssignNotes] = useState('')
+
+  const [licenseEditPlanId, setLicenseEditPlanId] = useState('')
+  const [licenseEditStatus, setLicenseEditStatus] = useState<LicenseStatus>('ACTIVE')
+  const [licenseEditStartsAt, setLicenseEditStartsAt] = useState('')
+  const [licenseEditEndsAt, setLicenseEditEndsAt] = useState('')
+  const [licenseEditNotes, setLicenseEditNotes] = useState('')
 
   const [membershipUserId, setMembershipUserId] = useState('')
   const [membershipSystemRole, setMembershipSystemRole] = useState<SystemRole>('ADMIN')
@@ -59,6 +124,10 @@ export default function EmpresasPage() {
   const editingCompany = useMemo(() => {
     return companies.find((company) => company.id === editingCompanyId) ?? null
   }, [companies, editingCompanyId])
+
+  const currentLicense = useMemo(() => {
+    return editingCompany?.platformLicenses?.[0] ?? null
+  }, [editingCompany])
 
   const activePlans = useMemo(() => plans.filter((plan) => plan.active), [plans])
 
@@ -103,11 +172,20 @@ export default function EmpresasPage() {
   useEffect(() => {
     if (!editingCompany) return
 
+    const license = editingCompany.platformLicenses?.[0] ?? null
+
     setEditName(editingCompany.name)
     setEditIsTest(editingCompany.isTest)
     setEditAccessStatus(editingCompany.platformAccessStatus)
     setEditAccessReason(editingCompany.platformBlockedReason ?? '')
     setAssignPlanId('')
+    setAssignStartsAt(getTodayInput())
+    setAssignNotes('')
+    setLicenseEditPlanId(license?.planId ?? '')
+    setLicenseEditStatus((license?.status as LicenseStatus) ?? 'ACTIVE')
+    setLicenseEditStartsAt(toDateInput(license?.startsAt))
+    setLicenseEditEndsAt(toDateInput(license?.endsAt))
+    setLicenseEditNotes(license?.notes ?? '')
     setMembershipUserId('')
     setMembershipSystemRole('ADMIN')
     setMembershipCustomRoleId('')
@@ -121,6 +199,7 @@ export default function EmpresasPage() {
     setOwnerName('')
     setOwnerPhone('')
     setLicensePlanId('')
+    setLicenseStartsAt(getTodayInput())
   }
 
   async function handleCreateCompany(event: FormEvent<HTMLFormElement>) {
@@ -139,6 +218,7 @@ export default function EmpresasPage() {
         ownerName: ownerName || null,
         ownerPhone: ownerPhone || null,
         licensePlanId: licensePlanId || null,
+        licenseStartsAt: licensePlanId ? licenseStartsAt || null : null,
         licenseNotes: licensePlanId ? 'Licença inicial criada pelo painel admin' : null,
       })
 
@@ -173,14 +253,43 @@ export default function EmpresasPage() {
       if (assignPlanId) {
         await adminApi.assignCompanyLicense(editingCompany.id, {
           planId: assignPlanId,
-          notes: 'Licença atribuída pelo painel admin',
+          startsAt: assignStartsAt || null,
+          notes: assignNotes || 'Licença atribuída pelo painel admin',
         })
       }
 
+      setAssignPlanId('')
+      setAssignStartsAt(getTodayInput())
+      setAssignNotes('')
       setSuccess('Empresa atualizada com sucesso.')
       await loadData()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao atualizar empresa.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleUpdateCurrentLicense() {
+    if (!currentLicense) return
+
+    try {
+      setSubmitting(true)
+      setError('')
+      setSuccess('')
+
+      await adminApi.updateCompanyLicense(currentLicense.id, {
+        planId: licenseEditPlanId || currentLicense.planId,
+        status: licenseEditStatus,
+        startsAt: licenseEditStartsAt || null,
+        endsAt: licenseEditEndsAt || null,
+        notes: licenseEditNotes || null,
+      })
+
+      setSuccess('Licença atualizada com sucesso.')
+      await loadData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao atualizar licença.')
     } finally {
       setSubmitting(false)
     }
@@ -303,6 +412,7 @@ export default function EmpresasPage() {
 
                 <div className="tile-meta-row">
                   <span className="badge muted-badge">{memberships.length} usuário(s)</span>
+                  {license && <span className="badge muted-badge">{getRemainingLabel(license)}</span>}
                 </div>
 
                 <div className="mini-user-stack">
@@ -326,7 +436,7 @@ export default function EmpresasPage() {
               <div>
                 <p className="eyebrow compact">Cadastro</p>
                 <h2>Nova empresa</h2>
-                <p className="muted">Crie a empresa e o usuário inicial.</p>
+                <p className="muted">Crie a empresa, o usuário inicial e, opcionalmente, uma licença com data inicial customizada.</p>
               </div>
               <button className="icon-button" type="button" onClick={() => setIsCompanyModalOpen(false)} aria-label="Fechar modal">×</button>
             </div>
@@ -358,15 +468,24 @@ export default function EmpresasPage() {
               </label>
             </div>
 
-            <label className="field">
-              <span>Licença inicial</span>
-              <select value={licensePlanId} onChange={(event) => setLicensePlanId(event.target.value)}>
-                <option value="">Sem licença inicial</option>
-                {activePlans.map((plan) => (
-                  <option key={plan.id} value={plan.id}>{plan.name} · {plan.isLifetime ? 'Vitalícia' : `${plan.durationMonths} meses`}</option>
-                ))}
-              </select>
-            </label>
+            <div className="form-grid">
+              <label className="field">
+                <span>Licença inicial</span>
+                <select value={licensePlanId} onChange={(event) => setLicensePlanId(event.target.value)}>
+                  <option value="">Sem licença inicial</option>
+                  {activePlans.map((plan) => (
+                    <option key={plan.id} value={plan.id}>{plan.name} · {plan.isLifetime ? 'Vitalícia' : `${plan.durationMonths} meses`}</option>
+                  ))}
+                </select>
+              </label>
+
+              {licensePlanId && (
+                <label className="field">
+                  <span>Data inicial da licença</span>
+                  <input type="date" value={licenseStartsAt} onChange={(event) => setLicenseStartsAt(event.target.value)} />
+                </label>
+              )}
+            </div>
 
             <div className="modal-actions">
               <button className="ghost-button" type="button" onClick={() => setIsCompanyModalOpen(false)}>Cancelar</button>
@@ -414,21 +533,94 @@ export default function EmpresasPage() {
               <input value={editAccessReason} onChange={(event) => setEditAccessReason(event.target.value)} placeholder="Opcional" />
             </label>
 
-            <div className="modal-section-grid">
-              <div className="mini-card">
+            <div className="modal-section-grid license-first-grid">
+              <div className="mini-card license-management-card">
                 <h3>Licença atual</h3>
-                <p className="muted">{editingCompany.platformLicenses?.[0]?.plan?.name ?? 'Sem licença atribuída'}</p>
-                <label className="field">
-                  <span>Nova licença</span>
-                  <select value={assignPlanId} onChange={(event) => setAssignPlanId(event.target.value)}>
-                    <option value="">Manter atual</option>
-                    {activePlans.map((plan) => (
-                      <option key={plan.id} value={plan.id}>{plan.name} · {plan.isLifetime ? 'Vitalícia' : `${plan.durationMonths} meses`}</option>
-                    ))}
-                  </select>
-                </label>
+                {currentLicense ? (
+                  <>
+                    <div className="license-info-grid">
+                      <InfoItem label="Plano" value={currentLicense.plan?.name ?? '—'} />
+                      <InfoItem label="Status" value={licenseStatusLabels[currentLicense.status as LicenseStatus] ?? currentLicense.status} />
+                      <InfoItem label="Início" value={formatDate(currentLicense.startsAt)} />
+                      <InfoItem label="Vencimento" value={currentLicense.endsAt ? formatDate(currentLicense.endsAt) : 'Vitalícia'} />
+                      <InfoItem label="Dias restantes" value={getRemainingLabel(currentLicense)} />
+                      <InfoItem label="Criada em" value={formatDate(currentLicense.createdAt)} />
+                    </div>
+
+                    <div className="form-grid compact-form-grid license-edit-grid">
+                      <label className="field">
+                        <span>Plano</span>
+                        <select value={licenseEditPlanId} onChange={(event) => setLicenseEditPlanId(event.target.value)}>
+                          {activePlans.map((plan) => (
+                            <option key={plan.id} value={plan.id}>{plan.name}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span>Status</span>
+                        <select value={licenseEditStatus} onChange={(event) => setLicenseEditStatus(event.target.value as LicenseStatus)}>
+                          <option value="ACTIVE">Ativa</option>
+                          <option value="EXPIRED">Expirada</option>
+                          <option value="CANCELLED">Cancelada</option>
+                          <option value="REPLACED">Substituída</option>
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span>Started at</span>
+                        <input type="date" value={licenseEditStartsAt} onChange={(event) => setLicenseEditStartsAt(event.target.value)} />
+                      </label>
+                      <label className="field">
+                        <span>Ends at</span>
+                        <input type="date" value={licenseEditEndsAt} onChange={(event) => setLicenseEditEndsAt(event.target.value)} />
+                      </label>
+                    </div>
+
+                    <label className="field">
+                      <span>Observações da licença</span>
+                      <textarea value={licenseEditNotes} onChange={(event) => setLicenseEditNotes(event.target.value)} placeholder="Opcional" />
+                    </label>
+
+                    <button className="ghost-button tile-action" type="button" disabled={submitting} onClick={handleUpdateCurrentLicense}>
+                      <AdminIcon name="licenses" />
+                      Salvar licença atual
+                    </button>
+                  </>
+                ) : (
+                  <p className="muted">Sem licença atribuída.</p>
+                )}
               </div>
 
+              <div className="mini-card">
+                <h3>Atribuir nova licença</h3>
+                <p className="muted">Ao atribuir uma nova licença ativa, a anterior é marcada como substituída.</p>
+                <div className="form-grid compact-form-grid">
+                  <label className="field">
+                    <span>Nova licença</span>
+                    <select value={assignPlanId} onChange={(event) => setAssignPlanId(event.target.value)}>
+                      <option value="">Manter atual</option>
+                      {activePlans.map((plan) => (
+                        <option key={plan.id} value={plan.id}>{plan.name} · {plan.isLifetime ? 'Vitalícia' : `${plan.durationMonths} meses`}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {assignPlanId && (
+                    <label className="field">
+                      <span>Start date</span>
+                      <input type="date" value={assignStartsAt} onChange={(event) => setAssignStartsAt(event.target.value)} />
+                    </label>
+                  )}
+                </div>
+                {assignPlanId && (
+                  <label className="field">
+                    <span>Observações</span>
+                    <input value={assignNotes} onChange={(event) => setAssignNotes(event.target.value)} placeholder="Licença atribuída pelo painel admin" />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <div className="modal-section-grid">
               <div className="mini-card">
                 <h3>Adicionar usuário à empresa</h3>
                 <label className="field">
@@ -468,28 +660,28 @@ export default function EmpresasPage() {
                   Vincular usuário
                 </button>
               </div>
-            </div>
 
-            <div className="mini-card users-access-card">
-              <div className="section-title compact-section-title">
-                <div>
-                  <p className="eyebrow compact">Acessos</p>
-                  <h3>Usuários com acesso</h3>
+              <div className="mini-card users-access-card no-top-margin">
+                <div className="section-title compact-section-title">
+                  <div>
+                    <p className="eyebrow compact">Acessos</p>
+                    <h3>Usuários com acesso</h3>
+                  </div>
+                  <span>{editingCompany.memberships?.length ?? 0} vínculo(s)</span>
                 </div>
-                <span>{editingCompany.memberships?.length ?? 0} vínculo(s)</span>
-              </div>
 
-              <div className="access-list">
-                {(editingCompany.memberships ?? []).map((membership) => (
-                  <MembershipRow
-                    key={membership.id}
-                    membership={membership}
-                    company={editingCompany}
-                    onUpdate={handleUpdateMembership}
-                    onRemove={handleRemoveMembership}
-                  />
-                ))}
-                {(editingCompany.memberships ?? []).length === 0 && <p className="muted">Nenhum usuário vinculado.</p>}
+                <div className="access-list">
+                  {(editingCompany.memberships ?? []).map((membership) => (
+                    <MembershipRow
+                      key={membership.id}
+                      membership={membership}
+                      company={editingCompany}
+                      onUpdate={handleUpdateMembership}
+                      onRemove={handleRemoveMembership}
+                    />
+                  ))}
+                  {(editingCompany.memberships ?? []).length === 0 && <p className="muted">Nenhum usuário vinculado.</p>}
+                </div>
               </div>
             </div>
 
@@ -501,6 +693,15 @@ export default function EmpresasPage() {
         </div>
       )}
     </AdminShell>
+  )
+}
+
+function InfoItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="license-info-item">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   )
 }
 

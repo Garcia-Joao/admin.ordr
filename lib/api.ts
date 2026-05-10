@@ -24,13 +24,18 @@ export type CompanyLicense = {
   id: string
   companyId: string
   planId: string
-  status: string
+  status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'REPLACED' | string
   startsAt: string
   endsAt: string | null
   notes: string | null
   createdAt: string
   updatedAt: string
   plan?: LicensePlan
+  createdByAdmin?: {
+    id: string
+    username: string
+    name: string | null
+  } | null
 }
 
 export type CompanyUser = {
@@ -257,6 +262,7 @@ export const adminApi = {
     ownerPhone?: string | null
     licensePlanId?: string | null
     licenseNotes?: string | null
+    licenseStartsAt?: string | null
   }) {
     return apiFetch<ApiResult<{ company: Company }>>('/admin/companies', {
       method: 'POST',
@@ -333,6 +339,7 @@ export const adminApi = {
     input: {
       planId: string
       notes?: string | null
+      startsAt?: string | null
     }
   ) {
     return apiFetch<ApiResult<{ license: CompanyLicense }>>(
@@ -342,5 +349,21 @@ export const adminApi = {
         body: JSON.stringify(input),
       }
     )
+  },
+
+  updateCompanyLicense(
+    licenseId: string,
+    input: Partial<{
+      planId: string
+      status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'REPLACED'
+      startsAt: string | null
+      endsAt: string | null
+      notes: string | null
+    }>
+  ) {
+    return apiFetch<ApiResult<{ license: CompanyLicense }>>(`/admin/company-licenses/${licenseId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    })
   },
 }
