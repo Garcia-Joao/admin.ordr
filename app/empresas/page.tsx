@@ -103,7 +103,6 @@ export default function EmpresasPage() {
   const [licenseStartsAt, setLicenseStartsAt] = useState(getTodayInput())
 
   const [editName, setEditName] = useState('')
-  const [editIsTest, setEditIsTest] = useState(false)
   const [editAccessStatus, setEditAccessStatus] = useState<AccessStatus>('ACTIVE')
   const [editAccessReason, setEditAccessReason] = useState('')
   const [assignPlanId, setAssignPlanId] = useState('')
@@ -175,7 +174,6 @@ export default function EmpresasPage() {
     const license = editingCompany.platformLicenses?.[0] ?? null
 
     setEditName(editingCompany.name)
-    setEditIsTest(editingCompany.isTest)
     setEditAccessStatus(editingCompany.platformAccessStatus)
     setEditAccessReason(editingCompany.platformBlockedReason ?? '')
     setAssignPlanId('')
@@ -245,7 +243,6 @@ export default function EmpresasPage() {
 
       await adminApi.updateCompany(editingCompany.id, {
         name: editName,
-        isTest: editIsTest,
         platformAccessStatus: editAccessStatus,
         platformBlockedReason: editAccessReason || null,
       })
@@ -507,38 +504,36 @@ export default function EmpresasPage() {
               <button className="icon-button" type="button" onClick={() => setEditingCompanyId('')} aria-label="Fechar modal">×</button>
             </div>
 
-            <div className="form-grid">
-              <label className="field">
-                <span>Nome da empresa</span>
-                <input value={editName} onChange={(event) => setEditName(event.target.value)} />
-              </label>
-              <label className="field">
-                <span>Status de acesso</span>
-                <select value={editAccessStatus} onChange={(event) => setEditAccessStatus(event.target.value as AccessStatus)}>
-                  <option value="ACTIVE">Ativa</option>
-                  <option value="SUSPENDED">Suspensa</option>
-                  <option value="BLOCKED">Bloqueada</option>
-                  <option value="CANCELLED">Cancelada</option>
-                </select>
-              </label>
-            </div>
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              <div className="mini-card">
+                <h3>Dados da empresa</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', gap: '0.85rem' }}>
+                  <label className="field">
+                    <span>Nome da empresa</span>
+                    <input value={editName} onChange={(event) => setEditName(event.target.value)} />
+                  </label>
+                  <label className="field">
+                    <span>Status de acesso</span>
+                    <select value={editAccessStatus} onChange={(event) => setEditAccessStatus(event.target.value as AccessStatus)}>
+                      <option value="ACTIVE">Ativa</option>
+                      <option value="SUSPENDED">Suspensa</option>
+                      <option value="BLOCKED">Bloqueada</option>
+                      <option value="CANCELLED">Cancelada</option>
+                    </select>
+                  </label>
+                </div>
 
-            <label className="check-row">
-              <input type="checkbox" checked={editIsTest} onChange={(event) => setEditIsTest(event.target.checked)} />
-              <span>Empresa de teste</span>
-            </label>
+                <label className="field">
+                  <span>Motivo do bloqueio/suspensão</span>
+                  <input value={editAccessReason} onChange={(event) => setEditAccessReason(event.target.value)} placeholder="Opcional" />
+                </label>
+              </div>
 
-            <label className="field">
-              <span>Motivo do bloqueio/suspensão</span>
-              <input value={editAccessReason} onChange={(event) => setEditAccessReason(event.target.value)} placeholder="Opcional" />
-            </label>
-
-            <div className="modal-section-grid license-first-grid">
               <div className="mini-card license-management-card">
                 <h3>Licença atual</h3>
                 {currentLicense ? (
                   <>
-                    <div className="license-info-grid">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))', gap: '0.65rem' }}>
                       <InfoItem label="Plano" value={currentLicense.plan?.name ?? '—'} />
                       <InfoItem label="Status" value={licenseStatusLabels[currentLicense.status as LicenseStatus] ?? currentLicense.status} />
                       <InfoItem label="Início" value={formatDate(currentLicense.startsAt)} />
@@ -547,7 +542,7 @@ export default function EmpresasPage() {
                       <InfoItem label="Criada em" value={formatDate(currentLicense.createdAt)} />
                     </div>
 
-                    <div className="form-grid compact-form-grid license-edit-grid">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))', gap: '0.75rem' }}>
                       <label className="field">
                         <span>Plano</span>
                         <select value={licenseEditPlanId} onChange={(event) => setLicenseEditPlanId(event.target.value)}>
@@ -593,7 +588,7 @@ export default function EmpresasPage() {
               <div className="mini-card">
                 <h3>Atribuir nova licença</h3>
                 <p className="muted">Ao atribuir uma nova licença ativa, a anterior é marcada como substituída.</p>
-                <div className="form-grid compact-form-grid">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', gap: '0.75rem' }}>
                   <label className="field">
                     <span>Nova licença</span>
                     <select value={assignPlanId} onChange={(event) => setAssignPlanId(event.target.value)}>
