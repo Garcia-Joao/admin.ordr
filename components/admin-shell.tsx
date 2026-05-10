@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { adminApi } from '@/lib/api'
 import { OrdrFullLogo, OrdrIcon } from '@/components/brand/ordr-brand'
 
-type IconName = 'dashboard' | 'companies' | 'licenses' | 'logout' | 'spark'
+type IconName = 'dashboard' | 'companies' | 'users' | 'licenses' | 'logout' | 'spark'
 
 export function AdminIcon({ name }: { name: IconName }) {
   const common = {
@@ -42,6 +42,18 @@ export function AdminIcon({ name }: { name: IconName }) {
         <path d="M9 17h1" />
         <path d="M16 14h1" />
         <path d="M16 17h1" />
+      </svg>
+    )
+  }
+
+
+  if (name === 'users') {
+    return (
+      <svg {...common}>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
       </svg>
     )
   }
@@ -90,7 +102,7 @@ export function AdminShell({
   current,
 }: {
   children: React.ReactNode
-  current: 'dashboard' | 'empresas' | 'licencas'
+  current: 'dashboard' | 'empresas' | 'usuarios' | 'licencas'
 }) {
   const router = useRouter()
 
@@ -105,6 +117,7 @@ export function AdminShell({
   const links = [
     { key: 'dashboard', href: '/dashboard/', label: 'Dashboard', description: 'Visão geral', icon: 'dashboard' },
     { key: 'empresas', href: '/empresas/', label: 'Empresas', description: 'Clientes e acessos', icon: 'companies' },
+    { key: 'usuarios', href: '/usuarios/', label: 'Usuários', description: 'Acessos por empresa', icon: 'users' },
     { key: 'licencas', href: '/licencas/', label: 'Licenças', description: 'Planos comerciais', icon: 'licenses' },
   ] as const
 

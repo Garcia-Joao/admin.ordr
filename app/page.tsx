@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { OrdrIcon } from '@/components/brand/ordr-brand'
 import { adminApi } from '@/lib/api'
 
 export default function HomePage() {
@@ -34,7 +35,7 @@ export default function HomePage() {
   return (
     <main className="page-center">
       <div className="loading-card">
-        <div className="brand-mark">O</div>
+        <OrdrIcon size="lg" className="loading-logo" />
         <p>Verificando acesso administrativo...</p>
       </div>
     </main>

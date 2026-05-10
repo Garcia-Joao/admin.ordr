@@ -42,6 +42,38 @@ export type CompanyUser = {
   createdAt: string
 }
 
+export type CustomRole = {
+  id: string
+  name: string
+  description: string | null
+  active: boolean
+}
+
+export type CompanyMembership = {
+  id: string
+  userId: string
+  companyId: string
+  role: 'admin' | 'cashier' | 'waiter'
+  systemRole: 'ADMIN' | 'CUSTOM'
+  customRoleId: string | null
+  createdAt: string
+  updatedAt?: string
+  user?: CompanyUser
+  company?: {
+    id: string
+    name: string
+    isTest: boolean
+    platformAccessStatus: Company['platformAccessStatus']
+  }
+  customRole?: CustomRole | null
+}
+
+export type PlatformUser = CompanyUser & {
+  photoBase64?: string | null
+  memberships: CompanyMembership[]
+  _count?: { memberships?: number }
+}
+
 export type Company = {
   id: string
   name: string
@@ -50,12 +82,8 @@ export type Company = {
   platformAccessStatus: 'ACTIVE' | 'SUSPENDED' | 'BLOCKED' | 'CANCELLED'
   platformBlockedAt: string | null
   platformBlockedReason: string | null
-  memberships?: Array<{
-    id: string
-    role: string
-    systemRole: string
-    user: CompanyUser
-  }>
+  memberships?: CompanyMembership[]
+  accessRoles?: CustomRole[]
   platformLicenses?: CompanyLicense[]
   _count?: {
     orders?: number
@@ -199,6 +227,10 @@ export const adminApi = {
     return apiFetch<ApiResult<{ companies: Company[] }>>('/admin/companies')
   },
 
+  listUsers() {
+    return apiFetch<ApiResult<{ users: PlatformUser[] }>>('/admin/users')
+  },
+
   createCompany(input: {
     name: string
     isTest: boolean
@@ -211,6 +243,21 @@ export const adminApi = {
   }) {
     return apiFetch<ApiResult<{ company: Company }>>('/admin/companies', {
       method: 'POST',
+      body: JSON.stringify(input),
+    })
+  },
+
+  updateCompany(
+    companyId: string,
+    input: Partial<{
+      name: string
+      isTest: boolean
+      platformAccessStatus: Company['platformAccessStatus']
+      platformBlockedReason: string | null
+    }>
+  ) {
+    return apiFetch<ApiResult<{ company: Company }>>(`/admin/companies/${companyId}`, {
+      method: 'PATCH',
       body: JSON.stringify(input),
     })
   },
@@ -229,6 +276,39 @@ export const adminApi = {
         body: JSON.stringify(input),
       }
     )
+  },
+
+  upsertCompanyMembership(input: {
+    companyId: string
+    userId: string
+    systemRole: 'ADMIN' | 'CUSTOM'
+    customRoleId?: string | null
+    role?: 'admin' | 'cashier' | 'waiter'
+  }) {
+    return apiFetch<ApiResult<{ membership: CompanyMembership }>>('/admin/company-memberships', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+  },
+
+  updateCompanyMembership(
+    membershipId: string,
+    input: Partial<{
+      systemRole: 'ADMIN' | 'CUSTOM'
+      customRoleId: string | null
+      role: 'admin' | 'cashier' | 'waiter'
+    }>
+  ) {
+    return apiFetch<ApiResult<{ membership: CompanyMembership }>>(`/admin/company-memberships/${membershipId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    })
+  },
+
+  deleteCompanyMembership(membershipId: string) {
+    return apiFetch<ApiResult<Record<string, never>>>(`/admin/company-memberships/${membershipId}`, {
+      method: 'DELETE',
+    })
   },
 
   assignCompanyLicense(
