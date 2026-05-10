@@ -62,14 +62,17 @@ export default function EmpresasPage() {
 
   const activePlans = useMemo(() => plans.filter((plan) => plan.active), [plans])
 
+  const visibleCompanies = useMemo(() => {
+    return companies.filter((company) => !company.isTest)
+  }, [companies])
+
   const summary = useMemo(() => {
     return {
-      total: companies.length,
-      active: companies.filter((company) => company.platformAccessStatus === 'ACTIVE').length,
-      test: companies.filter((company) => company.isTest).length,
-      withLicense: companies.filter((company) => company.platformLicenses?.[0]).length,
+      total: visibleCompanies.length,
+      active: visibleCompanies.filter((company) => company.platformAccessStatus === 'ACTIVE').length,
+      withLicense: visibleCompanies.filter((company) => company.platformLicenses?.[0]).length,
     }
-  }, [companies])
+  }, [visibleCompanies])
 
   const availableUsersForCompany = useMemo(() => {
     if (!editingCompany) return users
@@ -268,7 +271,6 @@ export default function EmpresasPage() {
         <SummaryCard label="Empresas" value={summary.total} />
         <SummaryCard label="Ativas" value={summary.active} />
         <SummaryCard label="Com licença" value={summary.withLicense} />
-        <SummaryCard label="Teste" value={summary.test} />
       </section>
 
       <section className="card companies-card full-grid-card">
@@ -277,11 +279,11 @@ export default function EmpresasPage() {
             <p className="eyebrow compact">Grid</p>
             <h2>Empresas cadastradas</h2>
           </div>
-          <span>{companies.length} empresa(s)</span>
+          <span>{visibleCompanies.length} empresa(s)</span>
         </div>
 
         <div className="company-grid-list company-grid-list-wide">
-          {companies.map((company) => {
+          {visibleCompanies.map((company) => {
             const license = company.platformLicenses?.[0]
             const memberships = company.memberships ?? []
 
@@ -301,7 +303,6 @@ export default function EmpresasPage() {
 
                 <div className="tile-meta-row">
                   <span className="badge muted-badge">{memberships.length} usuário(s)</span>
-                  {company.isTest && <span className="badge">Teste</span>}
                 </div>
 
                 <div className="mini-user-stack">
@@ -314,7 +315,7 @@ export default function EmpresasPage() {
             )
           })}
 
-          {companies.length === 0 && <p className="muted">Nenhuma empresa cadastrada.</p>}
+          {visibleCompanies.length === 0 && <p className="muted">Nenhuma empresa cadastrada.</p>}
         </div>
       </section>
 
