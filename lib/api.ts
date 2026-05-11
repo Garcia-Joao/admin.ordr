@@ -79,9 +79,12 @@ export type PlatformUser = CompanyUser & {
   _count?: { memberships?: number }
 }
 
+export type CompanyType = 'BUSINESS' | 'SUPPLIER'
+
 export type Company = {
   id: string
   name: string
+  companyType: CompanyType
   isTest: boolean
   createdAt: string
   platformAccessStatus: 'ACTIVE' | 'SUSPENDED' | 'BLOCKED' | 'CANCELLED'
@@ -255,6 +258,7 @@ export const adminApi = {
 
   createCompany(input: {
     name: string
+    companyType?: CompanyType
     isTest?: boolean
     ownerUsername: string
     ownerPassword: string
@@ -274,6 +278,7 @@ export const adminApi = {
     companyId: string,
     input: Partial<{
       name: string
+      companyType: CompanyType
       isTest: boolean
       platformAccessStatus: Company['platformAccessStatus']
       platformBlockedReason: string | null

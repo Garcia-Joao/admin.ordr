@@ -142,6 +142,7 @@ export default function EmpresasPage() {
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false)
 
   const [companyName, setCompanyName] = useState('')
+  const [companyType, setCompanyType] = useState<'BUSINESS' | 'SUPPLIER'>('BUSINESS')
   const [ownerUsername, setOwnerUsername] = useState('')
   const [ownerPassword, setOwnerPassword] = useState('123456')
   const [ownerName, setOwnerName] = useState('')
@@ -150,6 +151,7 @@ export default function EmpresasPage() {
   const [licenseStartsAt, setLicenseStartsAt] = useState(getTodayInput())
 
   const [editName, setEditName] = useState('')
+  const [editCompanyType, setEditCompanyType] = useState<'BUSINESS' | 'SUPPLIER'>('BUSINESS')
   const [editAccessStatus, setEditAccessStatus] = useState<AccessStatus>('ACTIVE')
   const [editAccessReason, setEditAccessReason] = useState('')
   const [assignPlanId, setAssignPlanId] = useState('')
@@ -238,6 +240,7 @@ export default function EmpresasPage() {
     const license = editingCompany.platformLicenses?.[0] ?? null
 
     setEditName(editingCompany.name)
+    setEditCompanyType((editingCompany.companyType as 'BUSINESS' | 'SUPPLIER') ?? 'BUSINESS')
     setEditAccessStatus(editingCompany.platformAccessStatus)
     setEditAccessReason(editingCompany.platformBlockedReason ?? '')
     setAssignPlanId('')
@@ -262,6 +265,7 @@ export default function EmpresasPage() {
     setOwnerPhone('')
     setLicensePlanId('')
     setLicenseStartsAt(getTodayInput())
+    setCompanyType('BUSINESS')
   }
 
   function getLicensePlanById(planId: string) {
@@ -335,6 +339,7 @@ export default function EmpresasPage() {
 
       const result = await adminApi.createCompany({
         name: companyName,
+        companyType,
         isTest: false,
         ownerUsername,
         ownerPassword,
@@ -368,6 +373,7 @@ export default function EmpresasPage() {
 
       await adminApi.updateCompany(editingCompany.id, {
         name: editName,
+        companyType: editCompanyType,
         platformAccessStatus: editAccessStatus,
         platformBlockedReason: editAccessReason || null,
       })
@@ -530,7 +536,7 @@ export default function EmpresasPage() {
                 </div>
 
                 <strong>{company.name}</strong>
-                <p>{accessLabels[company.platformAccessStatus]} · {license?.plan?.name ?? 'Sem licença'}</p>
+                <p>{company.companyType === 'SUPPLIER' ? 'Fornecedor' : 'Operação'} · {accessLabels[company.platformAccessStatus]} · {license?.plan?.name ?? 'Sem licença'}</p>
 
                 <div className="tile-meta-row">
                   <span className="badge muted-badge">{memberships.length} usuário(s)</span>
@@ -563,10 +569,20 @@ export default function EmpresasPage() {
               <button className="icon-button" type="button" onClick={() => setIsCompanyModalOpen(false)} aria-label="Fechar modal">×</button>
             </div>
 
-            <label className="field">
-              <span>Nome da empresa</span>
-              <input value={companyName} onChange={(event) => setCompanyName(event.target.value)} />
-            </label>
+            <div className="form-grid">
+              <label className="field">
+                <span>Nome da empresa</span>
+                <input value={companyName} onChange={(event) => setCompanyName(event.target.value)} />
+              </label>
+              <label className="field">
+                <span>Tipo de empresa</span>
+                <select value={companyType} onChange={(event) => setCompanyType(event.target.value as 'BUSINESS' | 'SUPPLIER')}>
+                  <option value="BUSINESS">Operação / Cliente ORDR</option>
+                  <option value="SUPPLIER">Fornecedor</option>
+                </select>
+                <small>{companyType === 'SUPPLIER' ? 'Usuários deste tipo serão direcionados ao portal de fornecedores.' : 'Bares, restaurantes, eventos e operações que usam o PDV.'}</small>
+              </label>
+            </div>
 
             <div className="form-grid">
               <label className="field">
@@ -641,6 +657,13 @@ export default function EmpresasPage() {
                   <label className="field">
                     <span>Nome da empresa</span>
                     <input value={editName} onChange={(event) => setEditName(event.target.value)} />
+                  </label>
+                  <label className="field">
+                    <span>Tipo de empresa</span>
+                    <select value={editCompanyType} onChange={(event) => setEditCompanyType(event.target.value as 'BUSINESS' | 'SUPPLIER')}>
+                      <option value="BUSINESS">Operação / Cliente ORDR</option>
+                      <option value="SUPPLIER">Fornecedor</option>
+                    </select>
                   </label>
                   <label className="field">
                     <span>Status de acesso</span>
