@@ -93,6 +93,26 @@ export default function LicencasPage() {
     }
   }
 
+
+  async function deletePlan(plan: LicensePlan) {
+    const confirmed = window.confirm(`Excluir definitivamente a licença "${plan.name}"? Só é permitido excluir planos inativos e sem licenças ativas em empresas.`)
+    if (!confirmed) return
+
+    try {
+      setSubmitting(true)
+      setError('')
+      setSuccess('')
+
+      await adminApi.deleteLicensePlan(plan.id)
+      setSuccess('Licença excluída definitivamente.')
+      await loadPlans()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao excluir licença.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   if (loading) return <AdminLoading />
 
   return (
@@ -146,9 +166,21 @@ export default function LicencasPage() {
                 {plan.isLifetime ? 'Vitalícia' : `${plan.durationMonths} meses`} · {plan.slug}
               </small>
 
-              <button className="ghost-button tile-action" onClick={() => togglePlan(plan)}>
-                {plan.active ? 'Desativar' : 'Ativar'}
-              </button>
+              {!plan.active && <span className="delete-ready-pill">Inativa · pode excluir</span>}
+
+              <div className="split-actions">
+                <button className="ghost-button tile-action" onClick={() => togglePlan(plan)} disabled={submitting}>
+                  {plan.active ? 'Desativar' : 'Ativar'}
+                </button>
+                <button
+                  className="ghost-button danger-button tile-action"
+                  onClick={() => deletePlan(plan)}
+                  disabled={plan.active || submitting}
+                  title={plan.active ? 'Desative antes de excluir' : 'Excluir licença'}
+                >
+                  Excluir
+                </button>
+              </div>
             </div>
           ))}
 

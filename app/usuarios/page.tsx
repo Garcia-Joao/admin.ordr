@@ -194,6 +194,29 @@ export default function UsuariosPage() {
     }
   }
 
+
+  async function handleDeleteUser() {
+    if (!editingUser) return
+
+    const confirmed = window.confirm(`Excluir definitivamente o usuário "${editingUser.name || editingUser.username}"? Esta ação só é permitida para usuários sem vínculo com empresas.`)
+    if (!confirmed) return
+
+    try {
+      setSubmitting(true)
+      setError('')
+      setSuccess('')
+
+      await adminApi.deleteUser(editingUser.id)
+      setEditingUserId('')
+      setSuccess('Usuário excluído com sucesso.')
+      await loadData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao excluir usuário.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   if (loading) return <AdminLoading />
 
   return (
@@ -240,6 +263,7 @@ export default function UsuariosPage() {
               </div>
               <strong>{user.name || user.username}</strong>
               <p>{user.username}{user.phone ? ` · ${user.phone}` : ''}</p>
+              {user.memberships.length === 0 && <span className="delete-ready-pill">Sem empresa · pode excluir</span>}
               <div className="mini-user-stack">
                 {user.memberships.slice(0, 4).map((membership) => (
                   <span key={membership.id}>{membership.company?.name} · {getMembershipLabel(membership)}</span>
@@ -411,6 +435,22 @@ export default function UsuariosPage() {
                 })}
                 {editingUser.memberships.length === 0 && <p className="muted">Este usuário ainda não acessa nenhuma empresa.</p>}
               </div>
+            </div>
+
+            <div className="danger-zone-card">
+              <div>
+                <strong>Excluir usuário definitivamente</strong>
+                <p>Remova os vínculos com empresas antes de excluir. O histórico fica preservado com autor nulo.</p>
+              </div>
+              <button
+                className="ghost-button danger-button"
+                type="button"
+                disabled={editingUser.memberships.length > 0 || submitting}
+                onClick={handleDeleteUser}
+                title={editingUser.memberships.length > 0 ? 'Remova os acessos antes de excluir' : 'Excluir usuário'}
+              >
+                Excluir usuário
+              </button>
             </div>
           </div>
         </div>

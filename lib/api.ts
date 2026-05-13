@@ -231,6 +231,12 @@ export const adminApi = {
     })
   },
 
+  deleteLicensePlan(id: string) {
+    return apiFetch<ApiResult<{ deleted: { id: string; name: string } }>>(`/admin/license-plans/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
   listCompanies() {
     return apiFetch<ApiResult<{ companies: Company[] }>>('/admin/companies')
   },
@@ -339,6 +345,18 @@ export const adminApi = {
     })
   },
 
+  deleteUser(userId: string) {
+    return apiFetch<ApiResult<{ deleted: { id: string; username: string; name: string | null } }>>(`/admin/users/${userId}`, {
+      method: 'DELETE',
+    })
+  },
+
+  deleteCompany(companyId: string) {
+    return apiFetch<ApiResult<{ deleted: { id: string; name: string } }>>(`/admin/companies/${companyId}`, {
+      method: 'DELETE',
+    })
+  },
+
   assignCompanyLicense(
     companyId: string,
     input: {
@@ -369,6 +387,12 @@ export const adminApi = {
     return apiFetch<ApiResult<{ license: CompanyLicense }>>(`/admin/company-licenses/${licenseId}`, {
       method: 'PATCH',
       body: JSON.stringify(input),
+    })
+  },
+
+  deleteCompanyLicense(licenseId: string) {
+    return apiFetch<ApiResult<{ deleted: { id: string; company: string; plan: string; status: string } }>>(`/admin/company-licenses/${licenseId}`, {
+      method: 'DELETE',
     })
   },
 }

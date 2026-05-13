@@ -177,6 +177,9 @@ export default function EmpresasPage() {
     return editingCompany?.platformLicenses?.[0] ?? null
   }, [editingCompany])
 
+  const canDeleteEditingCompany = Boolean(editingCompany && editingCompany.platformAccessStatus !== 'ACTIVE')
+  const canDeleteCurrentLicense = Boolean(currentLicense && currentLicense.status !== 'ACTIVE')
+
   const activePlans = useMemo(() => plans.filter((plan) => plan.active), [plans])
 
   const selectedLicenseEditPlan = useMemo(() => {
@@ -483,6 +486,52 @@ export default function EmpresasPage() {
     }
   }
 
+
+  async function handleDeleteCurrentLicense() {
+    if (!currentLicense) return
+
+    const confirmed = window.confirm('Excluir esta licença inativa do histórico da empresa? Esta ação não pode ser desfeita.')
+    if (!confirmed) return
+
+    try {
+      setSubmitting(true)
+      setError('')
+      setSuccess('')
+
+      await adminApi.deleteCompanyLicense(currentLicense.id)
+      setSuccess('Licença removida do histórico.')
+      await loadData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao excluir licença.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleDeleteCompany() {
+    if (!editingCompany) return
+
+    const confirmed = window.confirm(
+      `Excluir definitivamente a empresa "${editingCompany.name}"? Todos os produtos, pedidos, clientes, eventos, estoque, impressoras, dispositivos, licenças e acessos desta empresa serão apagados.`
+    )
+    if (!confirmed) return
+
+    try {
+      setSubmitting(true)
+      setError('')
+      setSuccess('')
+
+      await adminApi.deleteCompany(editingCompany.id)
+      setEditingCompanyId('')
+      setSuccess('Empresa e todos os dados vinculados foram excluídos.')
+      await loadData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao excluir empresa.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   if (loading) return <AdminLoading />
 
   return (
@@ -537,6 +586,9 @@ export default function EmpresasPage() {
 
                 <strong>{company.name}</strong>
                 <p>{company.companyType === 'SUPPLIER' ? 'Fornecedor' : 'Operação'} · {accessLabels[company.platformAccessStatus]} · {license?.plan?.name ?? 'Sem licença'}</p>
+                {company.platformAccessStatus !== 'ACTIVE' && (
+                  <span className="delete-ready-pill">Pronta para exclusão segura</span>
+                )}
 
                 <div className="tile-meta-row">
                   <span className="badge muted-badge">{memberships.length} usuário(s)</span>
@@ -732,10 +784,21 @@ export default function EmpresasPage() {
                       <textarea value={licenseEditNotes} onChange={(event) => setLicenseEditNotes(event.target.value)} placeholder="Opcional" />
                     </label>
 
-                    <button className="ghost-button tile-action" type="button" disabled={submitting} onClick={handleUpdateCurrentLicense}>
-                      <AdminIcon name="licenses" />
-                      Salvar licença atual
-                    </button>
+                    <div className="split-actions">
+                      <button className="ghost-button tile-action" type="button" disabled={submitting} onClick={handleUpdateCurrentLicense}>
+                        <AdminIcon name="licenses" />
+                        Salvar licença atual
+                      </button>
+                      <button
+                        className="ghost-button danger-button tile-action"
+                        type="button"
+                        disabled={!canDeleteCurrentLicense || submitting}
+                        onClick={handleDeleteCurrentLicense}
+                        title={canDeleteCurrentLicense ? 'Excluir licença inativa' : 'Somente licenças inativas podem ser excluídas'}
+                      >
+                        Excluir licença
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <p className="muted">Sem licença atribuída.</p>
@@ -840,6 +903,24 @@ export default function EmpresasPage() {
                   {(editingCompany.memberships ?? []).length === 0 && <p className="muted">Nenhum usuário vinculado.</p>}
                 </div>
               </div>
+            </div>
+
+            <div className="danger-zone-card">
+              <div>
+                <strong>Excluir empresa definitivamente</strong>
+                <p>
+                  Disponível somente quando a empresa está suspensa, bloqueada ou cancelada. Ao excluir, todos os dados vinculados à empresa também são apagados.
+                </p>
+              </div>
+              <button
+                className="ghost-button danger-button"
+                type="button"
+                disabled={!canDeleteEditingCompany || submitting}
+                onClick={handleDeleteCompany}
+                title={canDeleteEditingCompany ? 'Excluir empresa e seus dados' : 'Desative a empresa antes de excluir'}
+              >
+                Excluir empresa
+              </button>
             </div>
 
             <div className="modal-actions">
